@@ -13,10 +13,10 @@ const martianMono = Martian_Mono({
   variable: "--font-martian-mono",
   subsets: ["latin"],
 });
-
+ 
 export const metadata: Metadata = {
   title: "Dev Event",
-  description: "A platform to discover and share developer events worldwide. The ultimate hub for tech meetups, conferences, and workshops. you must not miss!",
+  description: "f A platform to discover and share developer events worldwide. The ultimate hub for tech meetups, conferences, and workshops. you must not miss!",
 };
 
 export default function RootLayout({
