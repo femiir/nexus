@@ -9,7 +9,7 @@ export interface IEvent extends Document {
   image: string;
   venue: string;
   location: string;
-  date: string;
+  date: Date;
   time: string;
   mode: string;
   audience: string;
@@ -59,7 +59,7 @@ const EventSchema = new Schema<IEvent>(
       trim: true,
     },
     date: {
-      type: String,
+      type: Date,
       required: [true, "Event date is required"],
     },
     time: {
@@ -69,8 +69,7 @@ const EventSchema = new Schema<IEvent>(
     mode: {
       type: String,
       required: [true, "Event mode is required"],
-      enum: ["online", "offline", "hybrid"],
-      lowercase: true,
+      trim: true,
     },
     audience: {
       type: String,
@@ -100,51 +99,60 @@ const EventSchema = new Schema<IEvent>(
     },
   },
   {
-    timestamps: true, // Automatically manage createdAt and updatedAt
+    timestamps: true,
   }
 );
 
 // Pre-save hook: Generate slug from title and normalize date/time
-EventSchema.pre("save", function (next) {
-  // Only regenerate slug if title has been modified
+EventSchema.pre("save", async function (next) {
   if (this.isModified("title")) {
-    this.slug = this.title
+    const baseSlug = this.title
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, "") // Remove special characters
-      .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/-+/g, "-"); // Replace multiple hyphens with single hyphen
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+    
+    let slug = baseSlug;
+    let counter = 1;
+    
+    const Event = this.constructor as Model<IEvent>;
+    while (await Event.findOne({ slug, _id: { $ne: this._id } })) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+    
+    this.slug = slug;
   }
 
-  // Normalize date to ISO format (YYYY-MM-DD) if modified
   if (this.isModified("date")) {
     try {
-      const dateObj = new Date(this.date);
+      const dateObj = this.date instanceof Date ? this.date : new Date(this.date);
       if (isNaN(dateObj.getTime())) {
         return next(new Error("Invalid date format"));
       }
-      // Store in ISO format (YYYY-MM-DD)
-      this.date = dateObj.toISOString().split("T")[0];
+      this.date = dateObj;
     } catch {
       return next(new Error("Invalid date format"));
     }
   }
 
-  // Normalize time format (HH:MM AM/PM) if modified
   if (this.isModified("time")) {
-    const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i;
+    const timeRegex = /^(1[0-2]|0?[1-9]):[0-5][0-9]\s?(AM|PM)$/i;
     if (!timeRegex.test(this.time.trim())) {
-      return next(new Error("Time must be in format HH:MM AM/PM"));
+      return next(new Error("Time must be in format HH:MM AM/PM (e.g., 09:00 AM)"));
     }
-    // Normalize time format
-    this.time = this.time.trim().toUpperCase();
+    this.time = this.time.trim().toUpperCase().replace(/\s+/g, " ");
   }
 
   next();
 });
 
-// Create unique index on slug for faster lookups
-EventSchema.index({ slug: 1 });
+// ❌ REMOVED: EventSchema.index({ slug: 1 }); - Already covered by unique: true
+
+// ✅ Optional: Add compound indexes if you query by multiple fields
+// EventSchema.index({ date: 1, location: 1 }); // For date + location queries
+// EventSchema.index({ tags: 1 }); // For tag-based filtering
 
 // Export the Event model
 const Event: Model<IEvent> =
