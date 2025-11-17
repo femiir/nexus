@@ -8,6 +8,15 @@ export interface IBooking extends Document {
   updatedAt: Date;
 }
 
+// ✅ Extract regex to module-level constant
+// RFC 5322 compliant email validation pattern
+const EMAIL_VALIDATION_REGEX = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
+
+// ✅ Extract validator function for reusability
+export function isValidEmail(email: string): boolean {
+  return EMAIL_VALIDATION_REGEX.test(email);
+}
+
 // Define the Booking schema
 const BookingSchema = new Schema<IBooking>(
   {
@@ -22,44 +31,21 @@ const BookingSchema = new Schema<IBooking>(
       lowercase: true,
       trim: true,
       validate: {
-        validator: function (email: string) {
-          // RFC 5322 compliant email validation
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          return emailRegex.test(email);
-        },
+        validator: isValidEmail, // ✅ Clean and reusable
         message: "Please provide a valid email address",
       },
     },
   },
   {
-    timestamps: true, // Automatically manage createdAt and updatedAt
+    timestamps: true,
   }
 );
-
-// Pre-save hook: Verify that the referenced Event exists
-BookingSchema.pre("save", async function (next) {
-  // Only validate eventId if it's new or modified
-  if (this.isNew || this.isModified("eventId")) {
-    try {
-      const Event = mongoose.model("Event");
-      const eventExists = await Event.findById(this.eventId);
-
-      if (!eventExists) {
-        return next(new Error(`Event with ID ${this.eventId} does not exist`));
-      }
-    } catch {
-      return next(new Error("Error validating event reference"));
-    }
-  }
-
-  next();
-});
 
 // Create index on eventId for faster queries
 BookingSchema.index({ eventId: 1 });
 
 // Create compound index for preventing duplicate bookings
-BookingSchema.index({ eventId: 1, email: 1 });
+BookingSchema.index({ eventId: 1, email: 1 }, { unique: true });
 
 // Export the Booking model
 const Booking: Model<IBooking> =
