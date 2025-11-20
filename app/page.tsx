@@ -4,6 +4,9 @@ import { IEvent } from "@/database";
 import connectDB from "@/lib/mongodb";
 import Event from "@/database/event.model";
 
+// Force dynamic rendering - fetch fresh data on every request
+export const dynamic = 'force-dynamic';
+
 const Page = async () => {
 
   // Directly access database in server component (more efficient than API fetch)

@@ -9,6 +9,9 @@ services:
     container_name: nexus
     env_file:
       - .env
+    environment:
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
     # Don't expose ports directly - Traefik will handle routing
     expose:
       - "3000"
@@ -26,8 +29,12 @@ services:
       - "traefik.http.services.nexus.loadbalancer.server.port=3000"
       - "traefik.docker.network=proxy"
 
+      # Forward headers for proper URL detection
+      - "traefik.http.middlewares.nexus-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.nexus.middlewares=nexus-headers"
+
       # Optional: Add secure headers middleware
-      # - "traefik.http.routers.nexus.middlewares=secure-headers@docker"
+      # - "traefik.http.routers.nexus.middlewares=secure-headers@docker,nexus-headers"
 
     # Health check
     healthcheck:
