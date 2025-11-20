@@ -12,14 +12,9 @@ declare global {
 }
 
 // Get MongoDB URI from environment variables
+// NOTE: Don't validate here - validation happens at runtime in connectDB()
+// This allows the module to be imported during build without requiring env vars
 const MONGODB_URI = process.env.MONGODB_URI;
-
-// Validate that the MongoDB URI is defined
-if (!MONGODB_URI) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable inside .env.local"
-  );
-}
 
 // Initialize the cached connection object
 // In development, use a global variable to preserve the connection across hot reloads
@@ -37,6 +32,13 @@ if (!global.mongoose) {
  * @returns {Promise<typeof mongoose>} The mongoose instance with active connection
  */
 async function connectDB(): Promise<typeof mongoose> {
+  // Validate MongoDB URI at runtime (not at module import time)
+  if (!MONGODB_URI) {
+    throw new Error(
+      "Please define the MONGODB_URI environment variable inside .env.local"
+    );
+  }
+
   // Return existing connection if available
   if (cached.conn) {
     return cached.conn;

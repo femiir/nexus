@@ -1,17 +1,24 @@
 import EventCard from "@/components/EventCard"
 import ExploreBtn from "@/components/ExploreBtn"
 import { IEvent } from "@/database";
-import { cacheLife } from "next/cache";
-
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+import connectDB from "@/lib/mongodb";
+import Event from "@/database/event.model";
 
 const Page = async () => {
-  'use cache';
-  cacheLife('hours');
 
-  const response = await fetch(`${BASE_URL}/api/events`, { cache: 'no-store' });
-  const { events } = await response.json();
+  // Directly access database in server component (more efficient than API fetch)
+  let events: IEvent[] = [];
+
+  try {
+    await connectDB();
+    const rawEvents = await Event.find().sort({ createdAt: -1 }).lean();
+    // Convert to plain objects to satisfy type system
+    events = JSON.parse(JSON.stringify(rawEvents));
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    // Return empty array if database is not available (e.g., during build)
+    events = [];
+  }
 
   return (
     <section>

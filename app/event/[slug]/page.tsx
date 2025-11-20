@@ -1,8 +1,7 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
-
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+import connectDB from "@/lib/mongodb";
+import Event from "@/database/event.model";
 
 const EventDetailItem = ({ icon, alt, label }: { icon: string; alt: string; label: string }) => (
     <div className="flex-row-gap-2 items-center">
@@ -34,12 +33,12 @@ const EventAgendaItem = ({ item }: { item: string[] | string }) => {
 
 const EventTags = ({ tags }: { tags: string[] | string }) => {
     // Handle both array and stringified array
-    const tagItems = Array.isArray(tags) 
-        ? tags 
-        : typeof tags === 'string' 
+    const tagItems = Array.isArray(tags)
+        ? tags
+        : typeof tags === 'string'
             ? JSON.parse(tags)
             : [];
-    
+
     return (
         <div className="flex flex-wrap flex-rowgap-1.5">
             {tagItems.map((tag: string, index: number) => (
@@ -49,16 +48,29 @@ const EventTags = ({ tags }: { tags: string[] | string }) => {
     );
 };
 
+// Don't pre-render any event pages during build
+// Pages will be generated on-demand when users visit them
+export async function generateStaticParams() {
+    return [];
+}
+
 const EventDetailPage = async ({ params }: { params: Promise<{ slug: string }> }) => {
     // Await params (Next.js 15+ requirement)
     const { slug } = await params;
-    
-    const response = await fetch(`${BASE_URL}/api/events/${slug}`, { cache: 'no-store' });
-    
-    if (!response.ok) return notFound();
-    
-    const { event } = await response.json();
-    
+
+    // Directly access database in server component
+    let event = null;
+
+    try {
+        await connectDB();
+        const rawEvent = await Event.findOne({ slug }).lean();
+        // Convert to plain object
+        event = rawEvent ? JSON.parse(JSON.stringify(rawEvent)) : null;
+    } catch (error) {
+        console.error("Error fetching event:", error);
+        return notFound();
+    }
+
     if (!event) return notFound();
     
     const { description, image, overview, date, time, location, mode, agenda, audience, organizer, tags } = event;

@@ -4,9 +4,8 @@ import {getSimilarEventsBySlug} from "@/lib/actions/event.actions";
 import Image from "next/image";
 import BookEvent from "@/components/BookEvent";
 import EventCard from "@/components/EventCard";
-import { cacheLife } from 'next/dist/server/use-cache/cache-life';
-
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+import connectDB from "@/lib/mongodb";
+import Event from "@/database/event.model";
 
 const EventDetailItem = ({ icon, alt, label }: { icon: string; alt: string; label: string; }) => (
     <div className="flex-row-gap-2 items-center">
@@ -104,32 +103,20 @@ const EventTags = ({ tags }: { tags: string[] }) => (
 )
 
 const EventDetails = async ({ params }: { params: Promise<string> }) => {
-    'use cache';
-    cacheLife('hours');
-
     const slug = await params;
 
-    let event;
+    // Directly access database in server component
+    let event = null;
     try {
-        const request = await fetch(`${BASE_URL}/api/events/${slug}`, {
-            next: { revalidate: 60 }
-        });
-
-        if (!request.ok) {
-            if (request.status === 404) {
-                return notFound();
-            }
-            throw new Error(`Failed to fetch event: ${request.statusText}`);
-        }
-
-        const response = await request.json();
-        event = response.event;
-
-        if (!event) {
-            return notFound();
-        }
+        await connectDB();
+        const rawEvent = await Event.findOne({ slug }).lean();
+        event = rawEvent ? JSON.parse(JSON.stringify(rawEvent)) : null;
     } catch (error) {
         console.error('Error fetching event:', error);
+        return notFound();
+    }
+
+    if (!event) {
         return notFound();
     }
 
